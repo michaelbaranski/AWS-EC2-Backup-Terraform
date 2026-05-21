@@ -18,7 +18,8 @@ output "backup_plan_id" {
   value       = aws_backup_plan.ec2_backup_plan.id
 }
 
+
 output "backup_iam_role_arn" {
-  description = "ARN of the IAM role used by AWS Backup"
-  value       = aws_iam_role.backup_role.arn
+  value = data.aws_iam_role.backup_role.arn
 }
+
