@@ -1,8 +1,29 @@
 ############################################
-# ✅ EXISTING IAM ROLE (DO NOT CREATE)
+# ✅ CREATE IAM ROLE (NEW TENANT NEEDS THIS)
 ############################################
-data "aws_iam_role" "backup_role" {
+resource "aws_iam_role" "backup_role" {
   name = "AWSBackupServiceRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "backup.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "backup_policy" {
+  role       = aws_iam_role.backup_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+}
+
+resource "aws_iam_role_policy_attachment" "restore_policy" {
+  role       = aws_iam_role.backup_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores"
 }
 
 ############################################
@@ -35,7 +56,7 @@ resource "aws_backup_plan" "ec2_backup_plan" {
 resource "aws_backup_selection" "ec2_backup_selection" {
   name         = "ec2-tagged-backup-selection-usw2"
   plan_id      = aws_backup_plan.ec2_backup_plan.id
-  iam_role_arn = data.aws_iam_role.backup_role.arn
+  iam_role_arn = aws_iam_role.backup_role.arn
 
   selection_tag {
     type  = "STRINGEQUALS"
