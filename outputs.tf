@@ -20,6 +20,5 @@ output "backup_plan_id" {
 
 
 output "backup_iam_role_arn" {
-  value = data.aws_iam_role.backup_role.arn
+  value = aws_iam_role.backup_role.arn
 }
-
