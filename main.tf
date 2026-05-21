@@ -1,78 +1,49 @@
-# --------------------------------------------------------------------------
-# AWS Backup Vault
-# Stores the recovery points (snapshots) for all backed-up EC2 instances.
-# ---------------------------------------------------------------------------
-resource "aws_backup_vault" "ec2_backup_vault" {
-  name = var.backup_vault_name
-  tags = var.tags
+provider "aws" {
+  region = "us-west-2"
 }
 
-# ---------------------------------------------------------------------------
-# IAM Role for AWS Backup
-# Grants the AWS Backup service permission to create and restore snapshots.
-# ---------------------------------------------------------------------------
-resource "aws_iam_role" "backup_role" {
+############################################
+# ✅ EXISTING IAM ROLE (DO NOT CREATE)
+############################################
+data "aws_iam_role" "backup_role" {
   name = "AWSBackupServiceRole"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "backup.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-
-  tags = var.tags
 }
 
-resource "aws_iam_role_policy_attachment" "backup_policy" {
-  role       = aws_iam_role.backup_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+############################################
+# ✅ BACKUP VAULT (UNIQUE NAME)
+############################################
+resource "aws_backup_vault" "ec2_backup_vault" {
+  name = "ec2-backup-vault-usw2"
 }
 
-resource "aws_iam_role_policy_attachment" "restore_policy" {
-  role       = aws_iam_role.backup_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores"
-}
-
-# ---------------------------------------------------------------------------
-# AWS Backup Plan
-# Runs a daily backup job and retains each recovery point for 30 days.
-# ---------------------------------------------------------------------------
+############################################
+# ✅ BACKUP PLAN (UNIQUE NAME)
+############################################
 resource "aws_backup_plan" "ec2_backup_plan" {
-  name = var.backup_plan_name
+  name = "ec2-daily-backup-plan-usw2"
 
   rule {
-    rule_name         = "daily-${var.backup_retention_days}-day-retention"
+    rule_name         = "daily-30-day-retention"
     target_vault_name = aws_backup_vault.ec2_backup_vault.name
-    schedule          = var.backup_schedule
+    schedule          = "cron(0 5 ? * * *)"
 
     lifecycle {
-      delete_after = var.backup_retention_days
+      delete_after = 30
     }
   }
-
-  tags = var.tags
 }
 
-# ---------------------------------------------------------------------------
-# AWS Backup Selection
-# Targets EC2 instances that carry the configurable backup tag (default:
-# Backup = "true").  Add that tag to any instance you want included.
-# ---------------------------------------------------------------------------
+############################################
+# ✅ BACKUP SELECTION (TAG-BASED)
+############################################
 resource "aws_backup_selection" "ec2_backup_selection" {
-  name         = "ec2-tagged-backup-selection"
-  iam_role_arn = aws_iam_role.backup_role.arn
+  name         = "ec2-tagged-backup-selection-usw2"
   plan_id      = aws_backup_plan.ec2_backup_plan.id
+  iam_role_arn = data.aws_iam_role.backup_role.arn
 
   selection_tag {
     type  = "STRINGEQUALS"
-    key   = var.backup_tag_key
-    value = var.backup_tag_value
+    key   = "Backup"
+    value = "true"
   }
 }
